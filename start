@@ -1,0 +1,16 @@
+#! /usr/bin/env bash
+
+# suggestion / explanation from here: https://coderwall.com/p/fkfaqq/safer-bash-scripts-with-set-euxo-pipefail
+set -euo pipefail
+
+swd=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd -P )
+sh_exe_path="$swd/sh-exec"
+if ! [ -f $sh_exe_path ]; then
+  echo "Could not find sh-exec script at $sh_exe_path"
+  exit -1
+else
+  # Finally start the dev server
+  source $sh_exe_path RunDevServer $@
+fi
+
+
