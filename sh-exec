@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# A used to run commands in the nix development shell
+
+# suggestion / explanation from here: https://coderwall.com/p/fkfaqq/safer-bash-scripts-with-set-euxo-pipefail
+set -euo pipefail
+
+swd=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd -P )
+path_to_bash_common="$swd/bash/common.sh"
+if ! [ -f $path_to_bash_common ]; then
+  echo "Could not find the common bash set up script at $path_to_bash_common"
+  exit -1
+else
+  source $path_to_bash_common
+fi
+
+die() {
+  echo -e "run ${bold}./initial-setup${normal} to setup the development environment."
+  exit -1
+}
+
+if ! [ -x "$(command -v nix-env)" ]; then
+  echo -e "${red}NIX MISSING${normal}"
+  die
+fi
+
+if ! [ -x "$(command -v direnv)" ]; then
+  echo -e "${red}DIRENV MISSING${normal}"
+  die
+fi
+
+if ! [ -x "$(command -v cachix)" ]; then
+  echo -e "${red}CACHIX MISSING${normal}"
+  die
+fi
+
+if ! [ -x "$(command -v git)" ]; then
+  echo -e "${red}GIT MISSING${normal}"
+  die
+fi
+
+if ! [ -x "$(command -v realpath)" ]; then
+  echo -e "${red}COREUTILS MISSING${normal}"
+  die
+fi
+
+
+# check if we are already in th shell
+if [ -x "$(command -v RunDevServer)" ] && [ -v IN_NIX_SHELL ] ; then
+  exec $@
+else
+  # Script working directory
+  shellnix="$swd/default.nix"
+  args=$@
+  exec nix-shell --run "$args" "$shellnix"
+fi

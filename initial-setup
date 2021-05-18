@@ -1,0 +1,149 @@
+#!/usr/bin/env bash
+
+# A scrip to set up the development environment after the initial checkout of repository
+# Derived from https://github.com/digitallyinduced/ihp/blob/d98c3d6eb8145d859c9ce461e7d1367be5be7337/ProjectGenerator/bin/ihp-new
+
+# suggestion / explanation from here: https://coderwall.com/p/fkfaqq/safer-bash-scripts-with-set-euxo-pipefail
+set -euo pipefail
+
+swd=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd -P )
+path_to_bash_common="$swd/bash/common.sh"
+if ! [ -f $path_to_bash_common ]; then
+  echo "Could not find the common bash set up script at $path_to_bash_common"
+  exit -1
+else
+  source $path_to_bash_common
+fi
+
+echo -e "${magenta}Checking for dependencies${normal}"
+
+if ! [ -x "$(command -v nix-env)" ]; then
+  echo -e "${yellow}NIX MISSING${normal}"
+  echo -e "IHP uses NIX for dependency management."
+  echo -e "For installation instructions see: ${underline}https://ihp.digitallyinduced.com/Guide/installation.html#1-dependency-nix-package-manager${normal}"
+fi
+
+NIXPKGS_ATTR="nixpkgs"
+
+if [ -f /etc/os-release ]; then
+  grep '^ID=nixos$' /etc/os-release >/dev/null 2>&1 && NIXPKGS_ATTR="nixos"
+fi
+
+
+if ! [ -x "$(command -v direnv)" ]; then
+  echo -e "${magenta}DIRENV MISSING${normal}"
+  echo -e "IHP uses direnv to manage env variables."
+  echo -e "Learn more about direnv here: ${underline}https://direnv.net/${normal}"
+  echo ""
+  echo ""
+  echo -e "${bold}We will install direnv for you now. Continue? (Type y to proceed) ${normal}"
+  read -r -n1 choice
+  echo ""
+  case "$choice" in
+  y | Y) nix-env -iA ${NIXPKGS_ATTR}.direnv ;;
+  *)
+    echo -e "${blue}Please install direnv manually and then re-run this program.${normal}"
+    exit 1
+    ;;
+  esac
+  echo -e "${bold}Direnv needs to be hooked into your shell. Please follow the steps below:${normal}"
+  echo -e "Bash: Add ${bold}eval \"\$(direnv hook bash)\"${normal} to ~/.bashrc"
+  echo -e "ZSH: Add ${bold}eval \"\$(direnv hook zsh)\"${normal} to ~/.zshrc"
+  echo "Other shells: See https://direnv.net/#README"
+  echo -e "${bold}Have you hooked direnv into your shell? [y/n] ${normal}"
+  while true; do
+    read -r -n1 choice
+    echo ""
+    case "$choice" in
+    y | Y)
+      echo "Great!"
+      break
+      ;;
+    n | N)
+      echo -e "${bold}mHook direnv into your shell after this script has finished.${normal}"
+      break
+      ;;
+    *) echo -e "${bold}Have you hooked direnv into your shell? Type ${underline}y${normal}${bold} for 'yes', ${underline}n${normal}${bold} for 'no'. ${normal}" ;;
+    esac
+  done
+fi
+
+if ! [ -x "$(command -v cachix)" ]; then
+  echo -e "${magenta}CACHIX MISSING${normal}"
+  echo -e "IHP uses cachix as a binary cache."
+  echo -e "Learn more about cachix here: ${underline}https://cachix.org/${normal}"
+  echo ""
+  echo ""
+  echo -e "${bold}We will install cachix for you now. Continue? (Type y to proceed) ${normal}"
+  read -r -n1 choice
+  echo ""
+  case "$choice" in
+  y | Y) nix-env -iA ${NIXPKGS_ATTR}.cachix ;;
+  *)
+    echo -e "${blue}Please install cachix manually and then re-run this program.${normal}"
+    exit 1
+    ;;
+  esac
+fi
+
+if ! [ -x "$(command -v git)" ]; then
+  echo -e "${magenta}GIT MISSING${normal}"
+  echo -e "IHP uses git for pulling the project boilerplate."
+  echo ""
+  echo ""
+  echo -e "${bold}We will install git for you now using 'nix-env -i git'. Continue? (Type y to proceed) ${normal}"
+  read -r -n1 choice
+  echo ""
+  case "$choice" in
+  y | Y) nix-env -iA ${NIXPKGS_ATTR}.git ;;
+  *)
+    echo -e "${blue}Please install git manually and then re-run this program.${normal}"
+    exit 1
+    ;;
+  esac
+fi
+
+if ! [ -x "$(command -v make)" ]; then
+  echo -e "${magenta}MAKE MISSING${normal}"
+  echo -e "IHP uses make for the building process."
+  echo ""
+  echo ""
+  echo -e "${bold}We will install make for you now using 'nix-env -i gnumake'. Continue? (Type y to proceed) ${normal}"
+  read -r -n1 choice
+  echo ""
+  case "$choice" in
+  y | Y) nix-env -iA ${NIXPKGS_ATTR}.gnumake ;;
+  *)
+    echo -e "${blue}Please install make manually and then re-run this program.${normal}"
+    exit 1
+    ;;
+  esac
+fi
+
+if ! [ -x "$(command -v realpath)" ]; then
+  echo -e "${magenta}COREUTILS MISSING${normal}"
+  echo -e "We use coreutils for command like realpath etc."
+  echo ""
+  echo ""
+  echo -e "${bold}We will install coreutils for you now using 'nix-env -i coreutils'. Continue? (Type y to proceed) ${normal}"
+  read -r -n1 choice
+  echo ""
+  case "$choice" in
+  y | Y) nix-env -iA ${NIXPKGS_ATTR}.coreutils ;;
+  *)
+    echo -e "${blue}Please install make manually and then re-run this program.${normal}"
+    exit 1
+    ;;
+  esac
+fi
+
+
+echo -e "${magenta}Checking Cachix binary cache set up${normal}"
+
+grep -s -q "digitallyinduced.cachix.org-1:y+wQvrnxQ+PdEsCt91rmvv39qRCYzEgGQaldK26hCKE=" ~/.config/nix/nix.conf \
+    || { echo -e "${magenta}Configuring Cachix binary cache for digitallyinduced${normal}"; cachix use digitallyinduced; }
+
+grep -s -q "ward-portal.cachix.org-1:lIw8vqNGx8shgMuRK9IbYeAmP7XQbOKD1JIY5DDMKuE=" ~/.config/nix/nix.conf \
+    || { echo -e "${magenta}Configuring Cachix binary cache for ward${normal}"; cachix use ward-portal; }
+
+echo -e "${magenta}Set up successfully completed${normal}"
